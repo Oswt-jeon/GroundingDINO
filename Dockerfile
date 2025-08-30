@@ -1,35 +1,30 @@
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel
 ARG DEBIAN_FRONTEND=noninteractive
 
-ENV CUDA_HOME=/usr/local/cuda \
-     TORCH_CUDA_ARCH_LIST="6.0 6.1 7.0 7.5 8.0 8.6+PTX" \
-     SETUPTOOLS_USE_DISTUTILS=stdlib
+# Turing(2060, SM 7.5)
+ENV TORCH_CUDA_ARCH_LIST="7.5" \
+    CUDA_HOME=/usr/local/cuda \
+    PATH=/usr/local/cuda/bin:$PATH
 
-RUN conda update conda -y
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git wget build-essential ffmpeg ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install libraries in the brand new image. 
-RUN apt-get -y update && apt-get install -y --no-install-recommends \
-         wget \
-         build-essential \
-         git \
-         python3-opencv \
-         ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
-
-# Set the working directory for all the subsequent Dockerfile instructions.
 WORKDIR /opt/program
-
 RUN git clone https://github.com/IDEA-Research/GroundingDINO.git
 
-RUN mkdir weights ; cd weights ; wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth ; cd ..
+# 필요 가중치
+RUN mkdir -p weights && cd weights && \
+    wget -q https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth
 
-RUN conda install -c "nvidia/label/cuda-12.1.1" cuda -y
-ENV CUDA_HOME=$CONDA_PREFIX
+# 파이썬 의존성 & 빌드 도구
+RUN pip install --upgrade pip \
+ && pip install "setuptools<70" wheel ninja packaging \
+ && pip install "opencv-python-headless<5" "numpy<2"
 
-ENV PATH=/usr/local/cuda/bin:$PATH
+# CUDA 확장 빌드: build isolation 끄고 editable 설치
+RUN pip install -e GroundingDINO/ --no-build-isolation
 
-RUN cd GroundingDINO/ && python -m pip install .
-
+# (옵션) 간단 헬스체크 스크립트
 COPY docker_test.py docker_test.py
-
-CMD [ "python", "docker_test.py" ]
+CMD ["python","docker_test.py"]

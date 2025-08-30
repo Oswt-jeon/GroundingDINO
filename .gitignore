@@ -144,3 +144,12 @@ grounding/version.py
 
 vis/
 tmp/
+
+weights/
+*.jpg
+*.png
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.webp
