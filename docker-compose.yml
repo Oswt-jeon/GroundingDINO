@@ -6,14 +6,6 @@ services:
     container_name: gdino
     gpus: all
     shm_size: "8g"
-    devices:
-      - /dev/video0:/dev/video0
-      - /dev/video1:/dev/video1
-    privileged: true
-    device_cgroup_rules:
-      - 'c 81:* rmw'
-    group_add:
-      - video
     volumes:
       - ${HOME}/GroundingDINO:/opt/program/GroundingDINO
     command: ["tail", "-f", "/dev/null"]

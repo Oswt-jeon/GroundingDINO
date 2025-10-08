@@ -2,8 +2,8 @@ from groundingdino.util.inference import load_model, load_image, predict, annota
 import cv2
 
 model = load_model("groundingdino/config/GroundingDINO_SwinT_OGC.py", "weights/groundingdino_swint_ogc.pth")
-IMAGE_PATH = "im.jpg"
-TEXT_PROMPT = "camera . person . dog ."
+IMAGE_PATH = "im.png"
+TEXT_PROMPT = "chili pepper . chili pepper . chili pepper . "
 BOX_TRESHOLD = 0.35
 TEXT_TRESHOLD = 0.25
 
