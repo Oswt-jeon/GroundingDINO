@@ -1,0 +1,16 @@
+# Streamlit 앱을 위한 의존성
+streamlit==1.28.0
+requests==2.31.0
+pillow==10.0.0
+numpy==1.24.3
+opencv-python==4.8.0.76
+
+# 백엔드 서버를 위한 의존성
+fastapi==0.103.0
+uvicorn==0.23.0
+python-multipart==0.0.6
+
+# GroundingDINO 관련 (이미 설치되어 있다면 제외)
+# torch
+# torchvision
+# transformers
