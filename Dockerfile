@@ -50,6 +50,9 @@ RUN pip install -c /tmp/constraints.txt -e GroundingDINO/ --no-build-isolation
 # (옵션) 설치 검증
 RUN python -c "import transformers, numpy; print('TRANSFORMERS', transformers.__version__, 'NUMPY', numpy.__version__)"
 
+# 가중치 파일 옮기기
+CMD ["mv", "weights", "GroundingDINO/"]
+
 # (옵션) 간단 헬스체크 스크립트
 COPY docker_test.py docker_test.py
 CMD ["python","docker_test.py"]

@@ -1,0 +1,17 @@
+# (기존 내용 +) CUDA 12.1 PyTorch wheels
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.1.2+cu121
+torchvision==0.16.2+cu121
+torchaudio==2.1.2
+
+numpy<2
+transformers==4.38.2
+opencv-python-headless<5
+pillow
+packaging
+ninja
+
+# ↓ 서버용
+fastapi
+uvicorn[standard]
+python-multipart   # 파일 업로드 처리
