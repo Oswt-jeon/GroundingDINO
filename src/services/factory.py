@@ -18,6 +18,7 @@ def create_detection_service() -> DetectionService:
         model_adapter=adapter,
         images_dir=settings.images_dir,
         results_dir=settings.results_dir,
+        search_dir=settings.search_dir,
         default_box_threshold=settings.box_threshold,
         default_text_threshold=settings.text_threshold,
         annotate_results=settings.annotate_results,
@@ -27,4 +28,3 @@ def create_detection_service() -> DetectionService:
 @lru_cache(maxsize=1)
 def get_detection_service() -> DetectionService:
     return create_detection_service()
-

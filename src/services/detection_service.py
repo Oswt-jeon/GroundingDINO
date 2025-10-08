@@ -29,6 +29,7 @@ class DetectionService:
         model_adapter: GroundingDinoModelAdapter,
         images_dir: Path,
         results_dir: Path,
+        search_dir: Path,
         default_box_threshold: float,
         default_text_threshold: float,
         annotate_results: bool = True,
@@ -36,6 +37,7 @@ class DetectionService:
         self._adapter = model_adapter
         self._images_dir = ensure_directory(images_dir)
         self._results_dir = ensure_directory(results_dir)
+        self._search_dir = ensure_directory(search_dir)
         self._default_box_threshold = default_box_threshold
         self._default_text_threshold = default_text_threshold
         self._annotate_results = annotate_results
@@ -95,6 +97,45 @@ class DetectionService:
             source_path=image_path,
             annotated_path=annotated_path,
         )
+
+    def detect_in_directory(
+        self,
+        *,
+        caption: str,
+        directory: Optional[Path] = None,
+        patterns: Optional[List[str]] = None,
+        box_threshold: Optional[float] = None,
+        text_threshold: Optional[float] = None,
+        limit: Optional[int] = None,
+        only_with_detections: bool = True,
+    ) -> List[DetectionResultPayload]:
+        target_dir = directory or self._search_dir
+        if not target_dir.exists():
+            raise FileNotFoundError(f"Search directory not found: {target_dir}")
+
+        glob_patterns = patterns or ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.webp"]
+        collected: List[DetectionResultPayload] = []
+
+        candidates = set()
+        for pattern in glob_patterns:
+            candidates.update(target_dir.glob(pattern))
+
+        for image_path in sorted(candidates):
+            if not image_path.is_file():
+                continue
+            result = self.detect_from_path(
+                image_path=image_path,
+                caption=caption,
+                box_threshold=box_threshold,
+                text_threshold=text_threshold,
+            )
+            if only_with_detections and not result.items:
+                continue
+            collected.append(result)
+            if limit is not None and len(collected) >= limit:
+                return collected
+
+        return collected
 
     def _build_detections(
         self,

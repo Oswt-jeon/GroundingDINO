@@ -60,6 +60,7 @@ class RuntimeSettings:
     images_dir: Path
     results_dir: Path
     annotate_results: bool
+    search_dir: Path
 
 
 def get_settings() -> RuntimeSettings:
@@ -79,4 +80,5 @@ def get_settings() -> RuntimeSettings:
         images_dir=_resolve_path("GDINO_IMAGES_DIR", "data/images"),
         results_dir=_resolve_path("GDINO_RESULTS_DIR", "data/results"),
         annotate_results=_resolve_bool("GDINO_ANNOTATE_RESULTS", True),
+        search_dir=_resolve_path("GDINO_SEARCH_DIR", "data/gallery"),
     )

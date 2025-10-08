@@ -21,3 +21,20 @@ services:
       - ./:/opt/program/GroundingDINO/
     restart: unless-stopped
     # Dockerfile에서 uvicorn CMD를 이미 설정했다면 이 줄은 생략 가능
+
+  frontend:
+    build:
+      context: .
+      dockerfile: front/Dockerfile
+    image: gdino-frontend:latest
+    container_name: gdino-front
+    depends_on:
+      - inference
+    ports:
+      - "8501:8501"
+    environment:
+      BACKEND_URL: "http://inference:8000"
+      STREAMLIT_SERVER_HEADLESS: "true"
+    volumes:
+      - ./front:/app/front
+    restart: unless-stopped

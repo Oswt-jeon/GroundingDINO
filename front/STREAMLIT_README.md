@@ -20,9 +20,12 @@
 
 2. **백엔드 서버 실행**
    ```bash
-   python backend_server.py
+   uvicorn inference.app:app --host 0.0.0.0 --port 8000
    ```
-   서버가 http://localhost:8000 에서 실행됩니다.
+   또는 Docker Compose를 사용할 경우:
+   ```bash
+   docker compose up inference
+   ```
 
 3. **Streamlit 앱 실행** (새 터미널에서)
    ```bash
@@ -31,10 +34,10 @@
    웹 브라우저에서 http://localhost:8501 로 접속합니다.
 
 ### 사용 방법
-1. 검색할 객체 이름 입력 (예: "person . car . dog")
-2. 분석할 이미지 업로드
-3. 필요시 사이드바에서 임계값 조정
-4. "검색하기" 버튼 클릭
+1. 검색할 객체 이름 입력 (예: `person . car . dog`)
+2. 필요시 사이드바에서 임계값 및 최대 결과 수 조정
+3. "검색하기" 버튼 클릭
+4. GroundingDINO가 `data/gallery/`에 있는 이미지에서 해당 객체를 찾고, 박스가 주석된 이미지를 UI에 표시합니다.
 
 ## 방법 2: 직접 처리 (올인원)
 
@@ -64,60 +67,37 @@
 객체 검색 수행
 
 **Parameters:**
-- `image`: 업로드할 이미지 파일
-- `query`: 검색할 객체 텍스트
-- `box_threshold`: 박스 검출 임계값 (기본값: 0.35)
+- `text`: 검색할 객체 텍스트 (예: `"bread . juice"`)
+- `box_threshold`: 박스 검출 임계값 (기본값: 0.25)
 - `text_threshold`: 텍스트 매칭 임계값 (기본값: 0.25)
+- `limit`: 반환할 최대 이미지 수 (기본값: 6)
 
 **Response:**
 ```json
 {
-    "status": "success",
-    "query": "person . car",
-    "detections": [
+  "results": [
+    {
+      "image": "data/gallery/shelf.jpg",
+      "detections": [
         {
-            "label": "person",
-            "confidence": 0.85,
-            "bbox": [100, 100, 200, 200]
+          "box": [120.4, 230.1, 420.7, 560.0],
+          "label": "bread",
+          "score": 0.78
         }
-    ],
-    "detection_count": 1
+      ],
+      "annotated_image": {
+        "data": "<base64-encoded image>",
+        "mime_type": "image/jpeg"
+      }
+    }
+  ]
 }
-```
-
-## 실제 GroundingDINO 통합
-
-현재 코드는 더미 데이터를 반환합니다. 실제 GroundingDINO를 사용하려면:
-
-1. `backend_server.py`의 TODO 부분을 실제 GroundingDINO 코드로 교체
-2. `front/streamlit_direct.py`의 TODO 부분을 실제 모델 로딩/추론 코드로 교체
-
-```python
-# 실제 구현 예시
-from groundingdino.util.inference import load_model, predict, annotate
-
-# 모델 로드
-model = load_model("config/GroundingDINO_SwinT_OGC.py", "weights/groundingdino_swint_ogc.pth")
-
-# 추론
-boxes, logits, phrases = predict(
-    model=model,
-    image=image,
-    caption=text_prompt,
-    box_threshold=box_threshold,
-    text_threshold=text_threshold
-)
-
-# 결과 시각화
-annotated_image = annotate(image_source=image, boxes=boxes, logits=logits, phrases=phrases)
 ```
 
 ## 배포
 
 ### Docker 배포
-1. 백엔드 서버를 Docker로 패키징
-2. Streamlit 앱을 별도 컨테이너로 실행
-3. docker-compose로 통합 관리
+`docker-compose.yml`을 사용하면 `inference`(FastAPI)와 `frontend`(Streamlit)를 한 번에 실행할 수 있습니다.
 
 ### 클라우드 배포
 - 백엔드: AWS ECS, Google Cloud Run 등
@@ -132,5 +112,6 @@ annotated_image = annotate(image_source=image, boxes=boxes, logits=logits, phras
 ## 개발자 노트
 
 - Streamlit의 `@st.cache_resource`를 사용해서 모델을 한 번만 로드
+- 검색 대상 이미지는 기본적으로 `data/gallery/`에 위치하며, `GDINO_SEARCH_DIR` 환경변수로 변경할 수 있습니다.
 - 대용량 이미지 처리시 메모리 최적화 필요
 - 실시간 처리를 위해서는 WebSocket 연결 고려

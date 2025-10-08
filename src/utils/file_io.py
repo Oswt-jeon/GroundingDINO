@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import base64
+import mimetypes
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 
 def ensure_directory(path: Path) -> Path:
@@ -49,3 +51,12 @@ def write_image(
         Image.fromarray(image).save(target_path)
     return target_path
 
+
+def encode_file_to_base64(path: Path) -> Tuple[str, str]:
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+    mime_type, _ = mimetypes.guess_type(str(path))
+    if mime_type is None:
+        mime_type = "image/jpeg"
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return encoded, mime_type
