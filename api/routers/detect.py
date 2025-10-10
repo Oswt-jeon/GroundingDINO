@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
-from api.dependencies import get_detection_service_dependency
+from api.dependencies import get_detection_manager_dependency
 from api.schemas.detections import (
     AnnotatedImageResponse,
     DetectItem,
@@ -12,7 +12,7 @@ from api.schemas.detections import (
     SearchRequest,
     SearchResponse,
 )
-from src.services.detection_service import DetectionService
+from src.services.manager import DetectionServiceManager
 from src.utils.file_io import encode_file_to_base64
 
 
@@ -30,8 +30,10 @@ async def detect(
     text: str = Form(...),
     box_threshold: Optional[float] = Form(None),
     text_threshold: Optional[float] = Form(None),
-    detection_service: DetectionService = Depends(get_detection_service_dependency),
+    model: Optional[str] = Form(None),
+    detection_manager: DetectionServiceManager = Depends(get_detection_manager_dependency),
 ) -> List[DetectItem]:
+    detection_service = detection_manager.resolve(model)
     payload = await file.read()
     result = detection_service.detect_from_bytes(
         data=payload,
@@ -46,8 +48,9 @@ async def detect(
 @router.post("/search", response_model=SearchResponse)
 def search(
     request: SearchRequest,
-    detection_service: DetectionService = Depends(get_detection_service_dependency),
+    detection_manager: DetectionServiceManager = Depends(get_detection_manager_dependency),
 ) -> SearchResponse:
+    detection_service = detection_manager.resolve(request.model)
     results = detection_service.detect_in_directory(
         caption=request.text,
         directory=None,

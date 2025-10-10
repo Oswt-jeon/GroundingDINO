@@ -54,6 +54,20 @@ with st.sidebar:
         help="검색 결과로 반환될 최대 이미지 수"
     )
 
+    model_options = {
+        "GroundingDINO": "grounding_dino",
+        "OmDet Turbo (실험적)": "omdet_turbo",
+    }
+    model_display_names = list(model_options.keys())
+    default_index = model_display_names.index("GroundingDINO")
+    selected_model_label = st.selectbox(
+        "모델 선택",
+        options=model_display_names,
+        index=default_index,
+        help="사용할 탐지 모델을 선택하세요. OmDet Turbo는 현재 실험적 상태입니다.",
+    )
+    selected_model = model_options[selected_model_label]
+
 # 메인 컨텐츠
 col1, col2 = st.columns([1, 1])
 
@@ -91,6 +105,7 @@ if search_button and query:
                 "box_threshold": box_threshold,
                 "text_threshold": text_threshold,
                 "limit": int(limit),
+                "model": selected_model,
             }
 
             endpoint = server_url.rstrip("/") + "/search"

@@ -42,3 +42,4 @@ class SearchRequest(BaseModel):
     text_threshold: Optional[float] = None
     limit: Optional[int] = None
     patterns: Optional[List[str]] = None
+    model: Optional[str] = None

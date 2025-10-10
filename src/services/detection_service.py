@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional, Protocol, Tuple
 
-from src.adapters.grounding_dino import GroundingDinoModelAdapter, PredictionResult
 from src.utils.file_io import ensure_directory, write_bytes_to_temp, write_image
 
 
@@ -22,11 +22,43 @@ class DetectionResultPayload:
     annotated_path: Optional[Path]
 
 
+class ModelPredictionProtocol(Protocol):
+    boxes: Any
+    logits: Any
+    phrases: List[str]
+
+
+class ModelAdapterProtocol(Protocol):
+    def load_image(self, image_path: Path) -> Tuple[Any, Any]:
+        ...
+
+    def predict(
+        self,
+        *,
+        image: Any,
+        caption: str,
+        box_threshold: float,
+        text_threshold: float,
+    ) -> ModelPredictionProtocol:
+        ...
+
+    def annotate(
+        self,
+        *,
+        image_source: Any,
+        boxes: Any,
+        logits: Any,
+        phrases: List[str],
+    ) -> Any:
+        ...
+
+
 class DetectionService:
     def __init__(
         self,
         *,
-        model_adapter: GroundingDinoModelAdapter,
+        model_adapter: ModelAdapterProtocol,
+        model_name: str,
         images_dir: Path,
         results_dir: Path,
         search_dir: Path,
@@ -35,6 +67,10 @@ class DetectionService:
         annotate_results: bool = True,
     ) -> None:
         self._adapter = model_adapter
+        self._model_name = model_name
+        base_logger = logging.getLogger("uvicorn.error")
+        self._logger = base_logger.getChild(f"detection.{model_name}")
+        self._logger.propagate = True
         self._images_dir = ensure_directory(images_dir)
         self._results_dir = ensure_directory(results_dir)
         self._search_dir = ensure_directory(search_dir)
@@ -52,6 +88,11 @@ class DetectionService:
         text_threshold: Optional[float] = None,
         persist_input: bool = False,
     ) -> DetectionResultPayload:
+        self._logger.info(
+            "Running detection with model='%s' from upload filename='%s'",
+            self._model_name,
+            filename or "<memory>",
+        )
         image_path = write_bytes_to_temp(
             data,
             filename=filename,
@@ -79,6 +120,11 @@ class DetectionService:
         box_threshold: Optional[float] = None,
         text_threshold: Optional[float] = None,
     ) -> DetectionResultPayload:
+        self._logger.info(
+            "Running detection with model='%s' on image='%s'",
+            self._model_name,
+            image_path,
+        )
         image_source, image_tensor = self._adapter.load_image(image_path)
         prediction = self._adapter.predict(
             image=image_tensor,
@@ -91,6 +137,12 @@ class DetectionService:
             image_source=image_source,
             prediction=prediction,
             original_path=image_path,
+        )
+        self._logger.info(
+            "Model='%s' finished image='%s' with %d detections",
+            self._model_name,
+            image_path,
+            len(detections),
         )
         return DetectionResultPayload(
             items=detections,
@@ -139,7 +191,7 @@ class DetectionService:
 
     def _build_detections(
         self,
-        prediction: PredictionResult,
+        prediction: ModelPredictionProtocol,
     ) -> List[Detection]:
         boxes_cpu = prediction.boxes.cpu()
         logits_cpu = prediction.logits.cpu()
@@ -162,7 +214,7 @@ class DetectionService:
         self,
         *,
         image_source,
-        prediction: PredictionResult,
+        prediction: ModelPredictionProtocol,
         original_path: Path,
     ) -> Optional[Path]:
         if not self._annotate_results or len(prediction.phrases) == 0:
