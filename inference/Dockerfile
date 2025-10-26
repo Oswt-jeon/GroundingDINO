@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-devel
+FROM pytorch/pytorch:2.2.2-cuda12.1-cudnn8-devel
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV TORCH_CUDA_ARCH_LIST="7.5" \
