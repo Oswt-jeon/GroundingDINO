@@ -43,3 +43,4 @@ class SearchRequest(BaseModel):
     limit: Optional[int] = None
     patterns: Optional[List[str]] = None
     model: Optional[str] = None
+    database_url: Optional[str] = None

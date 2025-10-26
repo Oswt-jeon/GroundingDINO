@@ -23,6 +23,7 @@ services:
     environment:
       NVIDIA_VISIBLE_DEVICES: "all"
       NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+      DATABASE_URL: "sqlite:////opt/program/GroundingDINO/data/sqlite/owlv2_examples.db"
     # ⬇️ 개발 편의용 볼륨 마운트 (원하는 것만 켜세요)
     volumes:
       # 코드 핫리로드용: app.py만 덮어쓰기 (또는 전체 폴더 마운트)

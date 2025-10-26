@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
+import io
 
 import cv2
 import numpy as np
@@ -83,6 +84,12 @@ class Owlv2ModelAdapter:
         tensor = torch.from_numpy(image_np).permute(2, 0, 1)
         return image_np, tensor
 
+    @staticmethod
+    def _load_image_from_bytes(payload: bytes) -> np.ndarray:
+        with Image.open(io.BytesIO(payload)) as img:
+            image_rgb = img.convert("RGB")
+        return np.array(image_rgb)
+
     def predict(
         self,
         *,
@@ -153,6 +160,96 @@ class Owlv2ModelAdapter:
                 phrases = [str(item) for item in phrases_raw]
             else:
                 phrases = [str(item) for item in phrases_raw]
+
+        return Owlv2PredictionResult(
+            boxes=boxes,
+            logits=scores,
+            phrases=phrases,
+        )
+
+    def image_guided_predict(
+        self,
+        *,
+        image: torch.Tensor,
+        query_images: Iterable[bytes],
+        query_labels: Optional[Iterable[str]],
+        box_threshold: float,
+        text_threshold: float,
+    ) -> Owlv2PredictionResult:
+        query_arrays = [self._load_image_from_bytes(payload) for payload in query_images]
+        if not query_arrays:
+            empty = torch.empty((0, 4), dtype=torch.float32)
+            return Owlv2PredictionResult(
+                boxes=empty,
+                logits=torch.empty((0,), dtype=torch.float32),
+                phrases=[],
+            )
+
+        image_np = image.detach().cpu().permute(1, 2, 0).numpy()
+        inputs = self.processor(
+            images=image_np,
+            query_images=query_arrays,
+            return_tensors="pt",
+        )
+        inputs = {key: value.to(self.device) for key, value in inputs.items()}
+
+        with torch.no_grad():
+            outputs = self.model.image_guided_detection(**inputs)
+
+        height, width = image_np.shape[0], image_np.shape[1]
+        target_sizes = torch.tensor([(height, width)], dtype=torch.float32)
+        score_threshold = box_threshold if box_threshold is not None else self.confidence_threshold
+
+        results = self.processor.post_process_image_guided_detection(
+            outputs=outputs,
+            target_sizes=target_sizes,
+            threshold=score_threshold,
+        )
+
+        if not results:
+            empty = torch.empty((0, 4), dtype=torch.float32)
+            return Owlv2PredictionResult(
+                boxes=empty,
+                logits=torch.empty((0,), dtype=torch.float32),
+                phrases=[],
+            )
+
+        result = results[0]
+        boxes_tensor = result.get("boxes")
+        scores_tensor = result.get("scores")
+        labels_tensor = result.get("labels")
+
+        if boxes_tensor is None or scores_tensor is None:
+            empty = torch.empty((0, 4), dtype=torch.float32)
+            return Owlv2PredictionResult(
+                boxes=empty,
+                logits=torch.empty((0,), dtype=torch.float32),
+                phrases=[],
+            )
+
+        label_list: Optional[List[str]] = None
+        if query_labels is not None:
+            label_list = list(query_labels)
+
+        boxes = boxes_tensor.detach().cpu()
+        scores = scores_tensor.detach().cpu()
+        phrases: List[str] = []
+        if labels_tensor is not None:
+            indices = (
+                labels_tensor.detach().cpu().tolist()
+                if isinstance(labels_tensor, torch.Tensor)
+                else list(labels_tensor)
+            )
+            for idx in indices:
+                if label_list and 0 <= int(idx) < len(label_list):
+                    phrases.append(label_list[int(idx)])
+                else:
+                    phrases.append(f"query_{int(idx)}")
+        else:
+            if label_list:
+                phrases = label_list[: len(boxes)]
+            else:
+                phrases = [f"query_{i}" for i in range(len(boxes))]
 
         return Owlv2PredictionResult(
             boxes=boxes,

@@ -71,6 +71,15 @@ def _resolve_optional_str(env_var: str) -> Optional[str]:
     value = raw.strip()
     return value or None
 
+
+def _resolve_database_url(env_var: str, default_relative: str) -> str:
+    raw = os.getenv(env_var)
+    if raw:
+        return raw
+    default_path = (PROJECT_ROOT / default_relative).resolve()
+    default_path.parent.mkdir(parents=True, exist_ok=True)
+    return f"sqlite:///{default_path}"
+
 def _resolve_class_names(env_var: str) -> Optional[List[str]]:
     raw = os.getenv(env_var)
     if not raw:
@@ -109,6 +118,7 @@ class RuntimeSettings:
     owlv2_weights_path: Optional[Path]
     owlv2_device: str
     owlv2_confidence_threshold: float
+    database_url: str
 
 
 def get_settings() -> RuntimeSettings:
@@ -147,4 +157,5 @@ def get_settings() -> RuntimeSettings:
         ),
         owlv2_device=_resolve_device(owlv2_device_env),
         owlv2_confidence_threshold=_resolve_float("OWLV2_CONFIDENCE_THRESHOLD", 0.2),
+        database_url=_resolve_database_url("DATABASE_URL", "data/sqlite/owlv2_examples.db"),
     )

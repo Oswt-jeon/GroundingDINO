@@ -115,6 +115,7 @@ if search_button and query:
                 "text_threshold": text_threshold,
                 "limit": int(limit),
                 "model": selected_model,
+                "database_url": st.session_state.get("database_url", database_url),
             }
 
             endpoint = server_url.rstrip("/") + "/search"

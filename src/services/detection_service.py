@@ -78,6 +78,10 @@ class DetectionService:
         self._default_text_threshold = default_text_threshold
         self._annotate_results = annotate_results
 
+    @property
+    def model_name(self) -> str:
+        return self._model_name
+
     def detect_from_bytes(
         self,
         *,
@@ -87,6 +91,8 @@ class DetectionService:
         box_threshold: Optional[float] = None,
         text_threshold: Optional[float] = None,
         persist_input: bool = False,
+        query_images: Optional[List[bytes]] = None,
+        query_labels: Optional[List[str]] = None,
     ) -> DetectionResultPayload:
         self._logger.info(
             "Running detection with model='%s' from upload filename='%s'",
@@ -104,6 +110,8 @@ class DetectionService:
                 caption=caption,
                 box_threshold=box_threshold,
                 text_threshold=text_threshold,
+                query_images=query_images,
+                query_labels=query_labels,
             )
         finally:
             if not persist_input and image_path.exists():
@@ -119,6 +127,8 @@ class DetectionService:
         caption: str,
         box_threshold: Optional[float] = None,
         text_threshold: Optional[float] = None,
+        query_images: Optional[List[bytes]] = None,
+        query_labels: Optional[List[str]] = None,
     ) -> DetectionResultPayload:
         self._logger.info(
             "Running detection with model='%s' on image='%s'",
@@ -126,11 +136,13 @@ class DetectionService:
             image_path,
         )
         image_source, image_tensor = self._adapter.load_image(image_path)
-        prediction = self._adapter.predict(
-            image=image_tensor,
+        prediction = self._predict(
+            image_tensor=image_tensor,
             caption=caption,
-            box_threshold=box_threshold or self._default_box_threshold,
-            text_threshold=text_threshold or self._default_text_threshold,
+            box_threshold=box_threshold,
+            text_threshold=text_threshold,
+            query_images=query_images,
+            query_labels=query_labels,
         )
         detections = self._build_detections(prediction)
         annotated_path = self._maybe_annotate(
@@ -160,6 +172,8 @@ class DetectionService:
         text_threshold: Optional[float] = None,
         limit: Optional[int] = None,
         only_with_detections: bool = True,
+        query_images: Optional[List[bytes]] = None,
+        query_labels: Optional[List[str]] = None,
     ) -> List[DetectionResultPayload]:
         target_dir = directory or self._search_dir
         if not target_dir.exists():
@@ -180,6 +194,8 @@ class DetectionService:
                 caption=caption,
                 box_threshold=box_threshold,
                 text_threshold=text_threshold,
+                query_images=query_images,
+                query_labels=query_labels,
             )
             if only_with_detections and not result.items:
                 continue
@@ -188,6 +204,33 @@ class DetectionService:
                 return collected
 
         return collected
+
+    def _predict(
+        self,
+        *,
+        image_tensor,
+        caption: str,
+        box_threshold: Optional[float],
+        text_threshold: Optional[float],
+        query_images: Optional[List[bytes]],
+        query_labels: Optional[List[str]],
+    ):
+        if query_images:
+            if not hasattr(self._adapter, "image_guided_predict"):
+                raise ValueError(f"Model '{self._model_name}' does not support image-guided detection.")
+            return self._adapter.image_guided_predict(
+                image=image_tensor,
+                query_images=query_images,
+                query_labels=query_labels,
+                box_threshold=box_threshold or self._default_box_threshold,
+                text_threshold=text_threshold or self._default_text_threshold,
+            )
+        return self._adapter.predict(
+            image=image_tensor,
+            caption=caption,
+            box_threshold=box_threshold or self._default_box_threshold,
+            text_threshold=text_threshold or self._default_text_threshold,
+        )
 
     def _build_detections(
         self,
