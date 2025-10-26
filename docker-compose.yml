@@ -1,6 +1,14 @@
 version: "3.8"
 
 services:
+  sqlite:
+    image: keinos/sqlite3
+    container_name: gdino-sqlite
+    command: ["tail", "-f", "/dev/null"]
+    volumes:
+      - ./data/sqlite:/data
+    restart: unless-stopped
+
   inference:
     # 상위에서 하위(inference) 폴더의 Dockerfile로 빌드
     build:
@@ -35,6 +43,8 @@ services:
     environment:
       BACKEND_URL: "http://inference:8000"
       STREAMLIT_SERVER_HEADLESS: "true"
+      DATABASE_URL: "sqlite:////data/sqlite/owlv2_examples.db"
     volumes:
       - ./front:/app/front
+      - ./data/sqlite:/data/sqlite
     restart: unless-stopped

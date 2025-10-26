@@ -17,6 +17,7 @@ st.markdown("---")
 
 # 사이드바에 설정 옵션
 default_backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+default_database_url = os.getenv("DATABASE_URL", "sqlite:////data/sqlite/owlv2_examples.db")
 
 with st.sidebar:
     st.header("설정")
@@ -27,6 +28,13 @@ with st.sidebar:
         value=default_backend_url,
         help="백엔드 API 서버의 URL을 입력하세요"
     )
+
+    database_url = st.text_input(
+        "데이터베이스 URL",
+        value=default_database_url,
+        help="OWLv2 예시 이미지 정보를 저장할 SQLite 데이터베이스 URL을 입력하세요"
+    )
+    st.session_state["database_url"] = database_url
 
     # 임계값 설정
     box_threshold = st.slider(
