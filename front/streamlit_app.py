@@ -57,6 +57,7 @@ with st.sidebar:
     model_options = {
         "GroundingDINO": "grounding_dino",
         "OmDet Turbo (실험적)": "omdet_turbo",
+        "OWLv2 (원샷)": "owlv2",
     }
     model_display_names = list(model_options.keys())
     default_index = model_display_names.index("GroundingDINO")

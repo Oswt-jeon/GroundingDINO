@@ -6,6 +6,7 @@ from typing import Dict
 from config.runtime import RuntimeSettings, get_settings
 from src.adapters.grounding_dino import GroundingDinoModelAdapter
 from src.adapters.omdet_turbo import OmDetTurboModelAdapter
+from src.adapters.owlv2 import Owlv2ModelAdapter
 from src.services.detection_service import DetectionService
 from src.services.manager import DetectionServiceManager
 
@@ -52,6 +53,28 @@ def _maybe_build_omdet_turbo_service(
     )
 
 
+def _maybe_build_owlv2_service(settings: RuntimeSettings) -> DetectionService | None:
+    if settings.owlv2_model_id is None and settings.owlv2_weights_path is None:
+        return None
+
+    adapter = Owlv2ModelAdapter(
+        model_id=settings.owlv2_model_id,
+        weights_path=settings.owlv2_weights_path,
+        device=settings.owlv2_device,
+        confidence_threshold=settings.owlv2_confidence_threshold,
+    )
+    return DetectionService(
+        model_adapter=adapter,
+        model_name="owlv2",
+        images_dir=settings.images_dir,
+        results_dir=settings.results_dir,
+        search_dir=settings.search_dir,
+        default_box_threshold=settings.box_threshold,
+        default_text_threshold=settings.text_threshold,
+        annotate_results=settings.annotate_results,
+    )
+
+
 def create_detection_manager() -> DetectionServiceManager:
     settings = get_settings()
     services: Dict[str, DetectionService] = {
@@ -62,9 +85,14 @@ def create_detection_manager() -> DetectionServiceManager:
     if omdet_service is not None:
         services["omdet_turbo"] = omdet_service
 
+    owlv2_service = _maybe_build_owlv2_service(settings)
+    if owlv2_service is not None:
+        services["owlv2"] = owlv2_service
+
     aliases = {
         "grounding_dino": ("groundingdino", "gdino"),
         "omdet_turbo": ("omdet", "omdetturbo", "turbo"),
+        "owlv2": ("owl", "owlvit", "owl-v2"),
     }
 
     default_model = settings.default_detection_model

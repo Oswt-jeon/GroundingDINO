@@ -105,11 +105,16 @@ class RuntimeSettings:
     omdet_device: str
     omdet_confidence_threshold: float
     omdet_class_names: Optional[List[str]]
+    owlv2_model_id: Optional[str]
+    owlv2_weights_path: Optional[Path]
+    owlv2_device: str
+    owlv2_confidence_threshold: float
 
 
 def get_settings() -> RuntimeSettings:
     device_env = os.getenv("GDINO_DEVICE")
     omdet_device_env = os.getenv("OMDET_DEVICE")
+    owlv2_device_env = os.getenv("OWLV2_DEVICE")
     return RuntimeSettings(
         model_config_path=_resolve_path(
             "GDINO_MODEL_CONFIG",
@@ -135,4 +140,11 @@ def get_settings() -> RuntimeSettings:
         omdet_device=_resolve_device(omdet_device_env),
         omdet_confidence_threshold=_resolve_float("OMDET_CONFIDENCE_THRESHOLD", 0.3),
         omdet_class_names=_resolve_class_names("OMDET_CLASS_NAMES"),
+        owlv2_model_id=_resolve_optional_str("OWLV2_MODEL_ID") or "google/owlv2-base-patch16",
+        owlv2_weights_path=_resolve_optional_path(
+            "OWLV2_WEIGHTS_PATH",
+            "weights/owlv2",
+        ),
+        owlv2_device=_resolve_device(owlv2_device_env),
+        owlv2_confidence_threshold=_resolve_float("OWLV2_CONFIDENCE_THRESHOLD", 0.2),
     )
