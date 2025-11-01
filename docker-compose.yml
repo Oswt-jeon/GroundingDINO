@@ -9,6 +9,26 @@ services:
       - ./data/sqlite:/data
     restart: unless-stopped
 
+  seed_examples:
+    build:
+      context: .
+      dockerfile: sql/Dockerfile
+    image: gdino-sql:seed
+    container_name: gdino-seed
+    depends_on:
+      - sqlite
+    environment:
+      DATABASE_URL: "sqlite:////opt/program/GroundingDINO/data/sqlite/owlv2_examples.db"
+      PYTHONPATH: "/opt/program/GroundingDINO"
+    volumes:
+      - ./:/opt/program/GroundingDINO/
+    working_dir: /opt/program/GroundingDINO
+    command: >
+      bash -lc "
+        python scripts/import_owlv2_examples.py data/examples --recursive
+      "
+    restart: "no"
+
   inference:
     # 상위에서 하위(inference) 폴더의 Dockerfile로 빌드
     build:
@@ -16,6 +36,8 @@ services:
       dockerfile: inference/Dockerfile
     image: gdino-server:inference
     container_name: gdino-infer
+    depends_on:
+      - seed_examples
     gpus: all
     shm_size: "8g"
     ports:

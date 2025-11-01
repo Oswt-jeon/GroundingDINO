@@ -29,12 +29,19 @@ with st.sidebar:
         help="백엔드 API 서버의 URL을 입력하세요"
     )
 
-    database_url = st.text_input(
+    database_url_input = st.text_input(
         "데이터베이스 URL",
         value=default_database_url,
         help="OWLv2 예시 이미지 정보를 저장할 SQLite 데이터베이스 URL을 입력하세요"
     )
-    st.session_state["database_url"] = database_url
+    normalized_db_url = database_url_input.strip()
+    effective_database_url = (
+        normalized_db_url
+        if normalized_db_url and normalized_db_url != default_database_url
+        else None
+    )
+    st.session_state["database_url_input"] = database_url_input
+    st.session_state["database_url_effective"] = effective_database_url
 
     # 임계값 설정
     box_threshold = st.slider(
@@ -77,6 +84,21 @@ with st.sidebar:
     )
     selected_model = model_options[selected_model_label]
 
+st.session_state.setdefault("owlv2_examples", [])
+st.session_state.setdefault("owlv2_examples_error", None)
+st.session_state.setdefault("owlv2_last_query", None)
+st.session_state.setdefault("owlv2_last_database_url", None)
+st.session_state.setdefault("owlv2_last_server_url", None)
+st.session_state.setdefault("owlv2_last_model", None)
+st.session_state.setdefault("database_url_input", default_database_url)
+st.session_state.setdefault("database_url_effective", None)
+
+if selected_model != "owlv2":
+    st.session_state["owlv2_examples"] = []
+    st.session_state["owlv2_examples_error"] = None
+    st.session_state["owlv2_last_query"] = None
+    st.session_state["owlv2_last_model"] = selected_model
+
 # 메인 컨텐츠
 col1, col2 = st.columns([1, 1])
 
@@ -98,6 +120,74 @@ with col1:
         use_container_width=True
     )
 
+    if selected_model == "owlv2":
+        normalized_query = query.strip()
+        db_url_for_examples = st.session_state.get("database_url_effective", effective_database_url)
+        last_query = st.session_state.get("owlv2_last_query")
+        last_db = st.session_state.get("owlv2_last_database_url")
+        last_server = st.session_state.get("owlv2_last_server_url")
+        last_model = st.session_state.get("owlv2_last_model")
+
+        should_fetch_examples = (
+            bool(normalized_query)
+            and (
+                normalized_query != last_query
+                or db_url_for_examples != last_db
+                or server_url != last_server
+                or last_model != "owlv2"
+            )
+        )
+
+        if should_fetch_examples:
+            try:
+                params = {"query": normalized_query}
+                if db_url_for_examples:
+                    params["database_url"] = db_url_for_examples
+                examples_endpoint = server_url.rstrip("/") + "/owlv2/examples"
+                response = requests.get(examples_endpoint, params=params, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                st.session_state["owlv2_examples"] = data.get("examples", [])
+                st.session_state["owlv2_examples_error"] = None
+            except requests.exceptions.RequestException as exc:
+                st.session_state["owlv2_examples"] = []
+                st.session_state["owlv2_examples_error"] = f"예시 이미지를 불러오지 못했습니다: {exc}"
+            except ValueError:
+                st.session_state["owlv2_examples"] = []
+                st.session_state["owlv2_examples_error"] = "예시 이미지 응답을 해석할 수 없습니다."
+            st.session_state["owlv2_last_query"] = normalized_query
+            st.session_state["owlv2_last_database_url"] = db_url_for_examples
+            st.session_state["owlv2_last_server_url"] = server_url
+        elif not normalized_query:
+            st.session_state["owlv2_examples"] = []
+            st.session_state["owlv2_examples_error"] = None
+            st.session_state["owlv2_last_query"] = None
+
+        st.session_state["owlv2_last_model"] = "owlv2"
+
+        st.markdown("#### OWLv2 예시 이미지")
+        error_message = st.session_state.get("owlv2_examples_error")
+        examples = st.session_state.get("owlv2_examples", [])
+
+        if error_message:
+            st.error(error_message)
+        elif not normalized_query:
+            st.info("검색어를 입력하면 등록된 예시 이미지를 확인할 수 있습니다.")
+        elif not examples:
+            st.info("등록된 예시 이미지가 없습니다.")
+        else:
+            for example in examples:
+                caption = example.get("filename") or f"예시 이미지 #{example.get('id')}"
+                image_data = example.get("image_base64")
+                if not image_data:
+                    st.warning(f"이미지 데이터가 없어 '{caption}'를 표시할 수 없습니다.")
+                    continue
+                try:
+                    image_bytes = base64.b64decode(image_data)
+                    st.image(image_bytes, caption=caption, use_column_width=True)
+                except Exception:
+                    st.warning(f"예시 이미지를 표시할 수 없습니다: {caption}")
+
 with col2:
     st.header("검색 결과")
     
@@ -115,8 +205,10 @@ if search_button and query:
                 "text_threshold": text_threshold,
                 "limit": int(limit),
                 "model": selected_model,
-                "database_url": st.session_state.get("database_url", database_url),
             }
+            payload_db_url = st.session_state.get("database_url_effective", effective_database_url)
+            if payload_db_url:
+                payload["database_url"] = payload_db_url
 
             endpoint = server_url.rstrip("/") + "/search"
             response = requests.post(

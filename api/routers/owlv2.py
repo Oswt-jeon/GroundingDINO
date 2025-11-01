@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -8,10 +9,25 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_db_session_dependency
 from api.schemas.owlv2_examples import OwlV2ExampleListResponse, OwlV2ExampleResponse
 from src.db.database import Database
+from src.db.models import OwlV2Example
 from src.repositories.owlv2_examples import OwlV2ExampleRepository
 
 
 router = APIRouter(prefix="/owlv2", tags=["owlv2"])
+
+
+def _serialize_example(example: OwlV2Example) -> OwlV2ExampleResponse:
+    image_base64 = None
+    if getattr(example, "image_data", None):
+        image_base64 = base64.b64encode(example.image_data).decode("utf-8")
+    return OwlV2ExampleResponse(
+        id=example.id,
+        query_text=example.query_text,
+        filename=example.filename,
+        mime_type=example.mime_type,
+        created_at=example.created_at,
+        image_base64=image_base64,
+    )
 
 
 @router.post(
@@ -51,7 +67,7 @@ async def create_owlv2_example(
             repository_session.close()
             temp_database.engine.dispose()
 
-    return OwlV2ExampleResponse.from_orm(example)
+    return _serialize_example(example)
 
 
 @router.get(
@@ -78,7 +94,7 @@ def list_owlv2_examples(
             temp_database.engine.dispose()
 
     return OwlV2ExampleListResponse(
-        examples=[OwlV2ExampleResponse.from_orm(item) for item in examples],
+        examples=[_serialize_example(item) for item in examples],
     )
 
 

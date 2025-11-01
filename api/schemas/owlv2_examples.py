@@ -12,6 +12,7 @@ class OwlV2ExampleResponse(BaseModel):
     filename: Optional[str]
     mime_type: Optional[str]
     created_at: datetime
+    image_base64: Optional[str] = None
 
     class Config:
         orm_mode = True

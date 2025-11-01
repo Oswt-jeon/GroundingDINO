@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import mimetypes
+import os
 import re
 import sys
 from pathlib import Path
@@ -9,13 +10,26 @@ from typing import Iterable, List
 
 from sqlalchemy import select
 
-from config.runtime import get_settings
 from src.db.database import Database
 from src.db.models import OwlV2Example
 from src.repositories.owlv2_examples import OwlV2ExampleRepository
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+
+
+def _resolve_database_url(cli_database_url: str | None) -> str:
+    if cli_database_url:
+        return cli_database_url
+
+    env_url = os.getenv("DATABASE_URL")
+    if env_url:
+        return env_url
+
+    project_root = Path(__file__).resolve().parents[1]
+    default_path = (project_root / "data/sqlite/owlv2_examples.db").resolve()
+    default_path.parent.mkdir(parents=True, exist_ok=True)
+    return f"sqlite:///{default_path}"
 
 
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
@@ -68,8 +82,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         print(f"[error] 디렉터리를 찾을 수 없습니다: {root}", file=sys.stderr)
         return 1
 
-    settings = get_settings()
-    db_url = args.database_url or settings.database_url
+    db_url = _resolve_database_url(args.database_url)
     database = Database.create(db_url)
     session = database.session()
     repository = OwlV2ExampleRepository(session=session)
