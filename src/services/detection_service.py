@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List, Optional, Protocol, Tuple
+from typing import Any, List, Optional, Protocol, Tuple, Union
 
 from src.utils.file_io import ensure_directory, write_bytes_to_temp, write_image
 
@@ -166,7 +166,7 @@ class DetectionService:
         self,
         *,
         caption: str,
-        directory: Optional[Path] = None,
+        directory: Optional[Union[str, Path]] = None,
         patterns: Optional[List[str]] = None,
         box_threshold: Optional[float] = None,
         text_threshold: Optional[float] = None,
@@ -175,7 +175,14 @@ class DetectionService:
         query_images: Optional[List[bytes]] = None,
         query_labels: Optional[List[str]] = None,
     ) -> List[DetectionResultPayload]:
-        target_dir = directory or self._search_dir
+        # directory가 문자열로 전달될 수 있으므로 Path 객체로 변환
+        if directory is None:
+            target_dir = self._search_dir
+        elif isinstance(directory, str):
+            target_dir = Path(directory)
+        else:
+            target_dir = directory
+            
         if not target_dir.exists():
             raise FileNotFoundError(f"Search directory not found: {target_dir}")
 

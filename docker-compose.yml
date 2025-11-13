@@ -46,10 +46,30 @@ services:
       NVIDIA_VISIBLE_DEVICES: "all"
       NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
       DATABASE_URL: "sqlite:////opt/program/GroundingDINO/data/sqlite/owlv2_examples.db"
+    # ⬇️ 웹캠 접근을 위한 장치 마운트 (모든 비디오 장치)
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+      - /dev/video2:/dev/video2
+      - /dev/video3:/dev/video3
+      - /dev/video4:/dev/video4
+      - /dev/video5:/dev/video5
     # ⬇️ 개발 편의용 볼륨 마운트 (원하는 것만 켜세요)
     volumes:
       # 코드 핫리로드용: app.py만 덮어쓰기 (또는 전체 폴더 마운트)
       - ./:/opt/program/GroundingDINO/
+      # USB 장치 정보 접근
+      - /dev/bus/usb:/dev/bus/usb
+      # 웹캠 관련 추가 장치 접근
+      - /dev:/dev
+    # 웹캠 접근을 위한 권한
+    privileged: true
+    # 추가 보안 컨텍스트 설정 (웹캠 접근용)
+    security_opt:
+      - seccomp:unconfined
+    # 그룹 권한 추가 (video 그룹)
+    group_add:
+      - video
     restart: unless-stopped
     # Dockerfile에서 uvicorn CMD를 이미 설정했다면 이 줄은 생략 가능
 
